@@ -1,0 +1,101 @@
+{
+ "states": 60,
+ "byBucket": {
+  "clear": 15,
+  "turn": 15,
+  "traffic": 20,
+  "spill": 10
+ },
+ "long_bare": {
+  "acceptable": "53/60",
+  "rate": 0.8833333333333333,
+  "meanModelMs": 794,
+  "perBucket": {
+   "clear": [
+    15,
+    15
+   ],
+   "turn": [
+    14,
+    15
+   ],
+   "spill": [
+    9,
+    10
+   ],
+   "traffic": [
+    15,
+    20
+   ]
+  }
+ },
+ "short_rubric": {
+  "acceptable": "53/60",
+  "rate": 0.8833333333333333,
+  "meanModelMs": 817,
+  "perBucket": {
+   "clear": [
+    15,
+    15
+   ],
+   "turn": [
+    14,
+    15
+   ],
+   "spill": [
+    8,
+    10
+   ],
+   "traffic": [
+    16,
+    20
+   ]
+  }
+ },
+ "short_rubric_p2": {
+  "acceptable": "52/60",
+  "rate": 0.8666666666666667,
+  "meanModelMs": 1109,
+  "perBucket": {
+   "clear": [
+    15,
+    15
+   ],
+   "turn": [
+    14,
+    15
+   ],
+   "spill": [
+    7,
+    10
+   ],
+   "traffic": [
+    16,
+    20
+   ]
+  }
+ },
+ "long_bare_p2": {
+  "acceptable": "55/60",
+  "rate": 0.9166666666666666,
+  "meanModelMs": 1077,
+  "perBucket": {
+   "clear": [
+    15,
+    15
+   ],
+   "turn": [
+    14,
+    15
+   ],
+   "spill": [
+    9,
+    10
+   ],
+   "traffic": [
+    17,
+    20
+   ]
+  }
+ }
+}

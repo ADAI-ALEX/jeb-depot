@@ -1,0 +1,27 @@
+{
+  "name": "jeb-depot",
+  "private": true,
+  "version": "0.1.0",
+  "description": "JEB // DEPOT — a local-first pixel-art warehouse robot driven by the JEB-4B decision model",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:jeb": "JEB_LIVE=1 vitest run tests/live",
+    "tauri": "tauri",
+    "app": "./scripts/build-app.sh"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}
