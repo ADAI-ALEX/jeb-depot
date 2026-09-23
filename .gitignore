@@ -1,0 +1,11 @@
+/target
+node_modules/
+/dist
+/src-tauri/gen/
+/src-tauri/target
+# fetched by scripts/fetch-llama.sh (pinned llama.cpp release, verified by SHA-256)
+/src-tauri/resources/llama/
+/.cache/
+*.gguf
+*.part
+.DS_Store
