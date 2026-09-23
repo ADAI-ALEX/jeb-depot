@@ -16,6 +16,15 @@ export interface DecisionRecord {
   /** Wall time of this stage seen from the game loop (request built -> answer back). */
   latencyMs: number;
   notes?: string[];
+  /** Tactical decisions: what each direction held, so outcomes can be scored offline. */
+  context?: DecisionContext;
+}
+
+export interface DecisionContext {
+  dirs: { rel: string; blocked: boolean; collides: boolean; spill: boolean; steps: number | null; onRoute: boolean }[];
+  adjacentTraffic: boolean;
+  nearTraffic: boolean;
+  nearHazard: boolean;
 }
 
 export interface TickRecord {

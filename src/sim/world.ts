@@ -315,10 +315,15 @@ export class World {
     return { events, outcome: this.outcome };
   }
 
-  /** A forklift blocked by another forklift for several active ticks turns back along its patrol. */
+  /**
+   * A forklift blocked (by another forklift or by the robot) for 4 of its active ticks gives way: it turns back
+   * along its patrol. Stand-offs therefore end, whatever the controller does.
+   */
   private breakDeadlock(f: Forklift): void {
     const next = f.path[(f.index + 1) % f.path.length] as Vec;
-    if (!this.forklifts.some((o) => o !== f && sameTile(o.pos, next))) return;
+    const byForklift = this.forklifts.some((o) => o !== f && sameTile(o.pos, next));
+    const byRobot = sameTile(next, this.robot.pos);
+    if (!byForklift && !byRobot) return;
     const n = (this.stuckWaits.get(f.id) ?? 0) + 1;
     this.stuckWaits.set(f.id, n);
     if (n >= 4) {

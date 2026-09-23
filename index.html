@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JEB // DEPOT</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #07090f; overflow: hidden; }
+      body { display: flex; align-items: center; justify-content: center; cursor: default; user-select: none; -webkit-user-select: none; }
+      #stage { position: relative; }
+      #screen { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+      /* CRT: fine scanlines and a soft vignette on top of the integer-scaled frame (toggle in Settings). */
+      #crt { position: absolute; inset: 0; pointer-events: none; }
+      #crt.on {
+        background:
+          radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,0.38) 100%),
+          repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0, rgba(0,0,0,0) calc(var(--px) * 0.5), rgba(0,0,0,0.16) calc(var(--px) * 0.5), rgba(0,0,0,0.16) var(--px));
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"><canvas id="screen" width="480" height="270"></canvas><div id="crt" class="on"></div></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

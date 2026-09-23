@@ -1,0 +1,21 @@
+[package]
+name = "jeb-depot"
+description = "JEB // DEPOT desktop app (Tauri shell, local model lifecycle)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "jeb_depot_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+jeb-core = { path = "../crates/jeb-core" }
+tauri = { version = "2.11", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "process"] }
+log = "0.4"

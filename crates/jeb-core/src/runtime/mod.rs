@@ -428,8 +428,17 @@ impl Runtime {
         Ok(freed)
     }
 
-    pub fn llama_log_tail(&self, lines: usize) -> String {
+    /// The live process' recent output, else the log file of the last run.
+    pub async fn llama_log_tail(&self, lines: usize) -> String {
+        if let Some(p) = self.process.lock().await.as_ref() {
+            return p.log_tail(lines);
+        }
         llama_process::log_tail(&self.paths.logs.join("llama-server.log"), lines)
+    }
+
+    /// What the running llama-server reported while loading (device, offload, buffers).
+    pub async fn load_report(&self) -> Option<llama_process::LoadReport> {
+        self.process.lock().await.as_ref().map(|p| p.load.lock().unwrap().clone())
     }
 
     /// Compare the pinned revision with the source repository's current state (network).

@@ -133,6 +133,13 @@ export class Mission {
       latencyMs: performance.now() - t,
       ...(res.notes ? { notes: res.notes } : {}),
     };
+    if (stage === "tactical")
+      rec.context = {
+        dirs: obs.dirs.map((d) => ({ rel: d.rel, blocked: d.blocked, collides: d.blocked || !!d.forkliftNext, spill: d.spill, steps: d.steps, onRoute: d.onRoute })),
+        adjacentTraffic: obs.dirs.some((d) => d.forkliftNow || d.forkliftNext),
+        nearTraffic: obs.traffic.some((t) => t.distance <= 3),
+        nearHazard: obs.hazards.some((h) => h.distance <= 1),
+      };
     return { res, rec };
   }
 

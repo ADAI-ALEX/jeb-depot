@@ -117,7 +117,7 @@ async fn main() {
             ("status", Backend::Managed(rt)) => {
                 let info = rt.process_info().await;
                 let sample = info.as_ref().and_then(|i| sysinfo::process_sample(i.pid as i32));
-                json!({"id": id, "ok": true, "result": {"process": info, "startup": rt.startup.lock().await.clone(), "hardware": sysinfo::hardware(), "sample": sample, "gpu": sysinfo::gpu_registry(), "alive": rt.alive().await}})
+                json!({"id": id, "ok": true, "result": {"process": info, "startup": rt.startup.lock().await.clone(), "hardware": sysinfo::hardware(), "sample": sample, "gpu": sysinfo::gpu_registry(), "alive": rt.alive().await, "loadReport": rt.load_report().await, "logTail": rt.llama_log_tail(30).await}})
             }
             ("restart", Backend::Managed(rt)) => match rt.start(&log_event).await {
                 Ok(()) => json!({"id": id, "ok": true, "result": {"process": rt.process_info().await, "startup": rt.startup.lock().await.clone()}}),

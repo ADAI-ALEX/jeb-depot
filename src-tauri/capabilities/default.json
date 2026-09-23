@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window: core IPC and event listening only (no filesystem, shell or HTTP plugins).",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

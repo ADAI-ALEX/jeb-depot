@@ -27,6 +27,10 @@ export interface DirInfo {
   onRoute: boolean;
   /** The next step of a route that avoids forklifts and spills (null field = no such route). */
   onDetour: boolean;
+  /** The planned route continues here, but a forklift makes it a collision this tick. */
+  routeBlocked: boolean;
+  /** When the route tile is blocked: the best step that does not collide. */
+  safeStep: boolean;
   /** A forklift standing in this tile is waiting for the robot to clear its path (it will not move first). */
   forkliftWaitingForRobot: boolean;
   text: string;
@@ -143,6 +147,40 @@ function nextOnField(world: World, field: Int16Array, p: Vec, heading: Dir): Vec
   return null;
 }
 
+/** The tiles the robot's active route follows from its position to the target (for the map overlay). */
+export function plannedPath(world: World, routes: RouteCache, maxLen = 60): Vec[] | null {
+  const r = world.robot;
+  const goal = world.targetTile();
+  if (!goal) return null;
+  let field = routes.field(goal);
+  if (r.routeMode === "detour") {
+    const g = world.grid;
+    const predicted = world.predictForklifts();
+    const blocked = new Set<number>();
+    for (const f of world.forklifts) {
+      blocked.add(g.idx(f.pos));
+      blocked.add(g.idx(predicted.get(f.id) as Vec));
+    }
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) if (world.isSpill({ x, y })) blocked.add(g.idx({ x, y }));
+    blocked.delete(g.idx(goal));
+    blocked.delete(g.idx(r.pos));
+    const detour = g.distanceField(goal, blocked);
+    if ((detour[g.idx(r.pos)] ?? -1) >= 0) field = detour;
+  }
+  const out: Vec[] = [{ ...r.pos }];
+  let p = r.pos;
+  let h = r.heading;
+  for (let i = 0; i < maxLen; i++) {
+    const n = nextOnField(world, field, p, h);
+    if (!n) break;
+    const d = (["N", "E", "S", "W"] as Dir[]).find((dd) => sameTile(world.grid.step(p, dd), n));
+    if (d) h = d;
+    out.push(n);
+    p = n;
+  }
+  return out.length > 1 ? out : null;
+}
+
 export function nearestCharger(world: World, routes: RouteCache, from: Vec): { tile: Vec; steps: number } | null {
   let best: { tile: Vec; steps: number } | null = null;
   for (const c of world.chargers) {
@@ -227,8 +265,18 @@ export function observe(world: World, routes: RouteCache): Observation {
     // A forklift in this tile whose next patrol tile is the robot's tile yields to the robot: it is waiting.
     const fl = fNow ? world.forklifts.find((f) => f.id === fNow) : undefined;
     const waiting = !!fl && sameTile(fl.path[(fl.index + 1) % fl.path.length] as Vec, r.pos);
-    return { rel, abs, tile, kind, blocked, forkliftNow: sensed(fNow), forkliftNext: sensed(fNext), spill, steps, onRoute, onDetour, forkliftWaitingForRobot: waiting && !!sensed(fNow), text: "" };
+    return { rel, abs, tile, kind, blocked, forkliftNow: sensed(fNow), forkliftNext: sensed(fNext), spill, steps, onRoute, onDetour, routeBlocked: false, safeStep: false, forkliftWaitingForRobot: waiting && !!sensed(fNow), text: "" };
   });
+  // Never call a tile that is a certain collision "on route": say the route is blocked there and name the best
+  // step that does not collide (prefer the clear detour, then the shortest remaining distance).
+  const routeTile = dirs.find((d) => d.onRoute);
+  if (routeTile && routeTile.forkliftNext) {
+    routeTile.onRoute = false;
+    routeTile.routeBlocked = true;
+    const safe = dirs.filter((d) => !d.blocked && !d.forkliftNext && d.steps !== null);
+    const best = safe.find((d) => d.onDetour) ?? [...safe].sort((a, b) => (a.steps as number) - (b.steps as number))[0];
+    if (best) best.safeStep = true;
+  }
   for (const d of dirs) d.text = describeDir(world, d, targetTile);
 
   const traffic: TrafficInfo[] = world.forklifts
@@ -356,8 +404,11 @@ function describeDir(world: World, d: DirInfo, targetTile: Vec | null): string {
     default:
       if (!d.forkliftNow && !d.forkliftNext) bits.push("open floor");
   }
-  if (targetTile && sameTile(d.tile, targetTile)) bits.push("the target itself");
-  else if (d.steps !== null) bits.push(`${d.onRoute ? "on route, " : d.onDetour ? "starts the clear detour, " : ""}${d.steps} steps from there`);
+  if (targetTile && sameTile(d.tile, targetTile)) bits.push(d.routeBlocked ? "the target itself, blocked this tick" : "the target itself");
+  else if (d.steps !== null) {
+    const tag = d.onRoute ? "on route, " : d.routeBlocked ? "the planned route, blocked this tick, " : d.safeStep ? "best safe step, " : d.onDetour ? "starts the clear detour, " : "";
+    bits.push(`${tag}${d.steps} steps from there`);
+  }
   return bits.join(", ");
 }
 

@@ -3,9 +3,12 @@
 
 use super::manifest::{CTX_SIZE, GPU_LAYERS, PARALLEL_SLOTS};
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::{Child, Command};
 
 #[derive(Debug, thiserror::Error)]
@@ -67,11 +70,64 @@ impl LlamaConfig {
             "--no-webui".into(),
             "--alias".into(),
             "jeb-4b".into(),
+            // Info level, so the load report (device, layers offloaded, buffer sizes) is printed; the log file is capped.
+            "-lv".into(),
+            "4".into(),
             "--api-key".into(),
             api_key.to_string(),
         ]
     }
 }
+
+/// What llama-server reported while loading the model (parsed from its log, not assumed).
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadReport {
+    pub device: Option<String>,
+    pub layers_offloaded: Option<String>,
+    pub gpu_model_buffer_mib: Option<f64>,
+    pub cpu_model_buffer_mib: Option<f64>,
+    pub kv_buffer_mib: Option<f64>,
+    pub recurrent_buffer_mib: Option<f64>,
+    pub compute_buffer_mib: Option<f64>,
+    pub n_ctx_slot: Option<u64>,
+    pub model_type: Option<String>,
+    pub threads: Option<u64>,
+}
+
+impl LoadReport {
+    fn mib(line: &str) -> Option<f64> {
+        let tail = line.split('=').nth(1)?.trim();
+        tail.split_whitespace().next()?.parse().ok()
+    }
+
+    pub fn observe(&mut self, line: &str) {
+        if line.contains("ggml_metal_init: found device:") {
+            self.device = line.split("found device:").nth(1).map(|s| s.trim().to_string());
+        } else if let Some(rest) = line.split("load_tensors: offloaded ").nth(1) {
+            self.layers_offloaded = Some(rest.trim().to_string());
+        } else if line.contains("MTL0_Mapped model buffer size") || line.contains("MTL0 model buffer size") {
+            self.gpu_model_buffer_mib = Self::mib(line);
+        } else if line.contains("CPU_Mapped model buffer size") {
+            self.cpu_model_buffer_mib = Self::mib(line);
+        } else if line.contains("KV buffer size") {
+            self.kv_buffer_mib = Self::mib(line);
+        } else if line.contains("RS buffer size") {
+            self.recurrent_buffer_mib = Self::mib(line);
+        } else if line.contains("MTL0 compute buffer size") {
+            self.compute_buffer_mib = Self::mib(line);
+        } else if let Some(rest) = line.split("n_ctx_slot = ").nth(1) {
+            self.n_ctx_slot = rest.split(|c: char| !c.is_ascii_digit()).next().and_then(|s| s.parse().ok());
+        } else if let Some(rest) = line.split("threadpool init, n_threads = ").nth(1) {
+            self.threads = rest.trim().parse().ok();
+        } else if let Some(rest) = line.split("print_info: model type").nth(1) {
+            self.model_type = rest.split('=').nth(1).map(|s| s.trim().to_string());
+        }
+    }
+}
+
+/// Log file cap: llama-server logs every request at info level; stop writing past this size.
+const LOG_CAP_BYTES: u64 = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,6 +145,39 @@ pub struct LlamaProcess {
     pub info: ProcessInfo,
     pub api_key: String,
     pid_path: PathBuf,
+    pub load: Arc<std::sync::Mutex<LoadReport>>,
+    tail: Arc<std::sync::Mutex<VecDeque<String>>>,
+}
+
+type SharedLog = Arc<tokio::sync::Mutex<(Option<tokio::fs::File>, u64)>>;
+
+/// Forward one output stream of the child: parse the load report, keep a tail in memory, append to the capped log.
+fn pump<R: tokio::io::AsyncRead + Unpin + Send + 'static>(stream: R, report: Arc<std::sync::Mutex<LoadReport>>, tail: Arc<std::sync::Mutex<VecDeque<String>>>, log: SharedLog) {
+    tokio::spawn(async move {
+        let mut lines = tokio::io::BufReader::new(stream).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            report.lock().unwrap().observe(&line);
+            {
+                let mut t = tail.lock().unwrap();
+                if t.len() >= 400 {
+                    t.pop_front();
+                }
+                t.push_back(line.clone());
+            }
+            let mut g = log.lock().await;
+            let (file, written) = &mut *g;
+            if let Some(f) = file.as_mut() {
+                if *written < LOG_CAP_BYTES {
+                    let bytes = format!("{line}\n");
+                    *written += bytes.len() as u64;
+                    let _ = f.write_all(bytes.as_bytes()).await;
+                    if *written >= LOG_CAP_BYTES {
+                        let _ = f.write_all(b"[jeb-depot] log capped at 8 MB; later lines are kept in memory only\n").await;
+                    }
+                }
+            }
+        }
+    });
 }
 
 fn free_port() -> std::io::Result<u16> {
@@ -150,18 +239,30 @@ impl LlamaProcess {
         let api_key = random_key();
         let port = free_port().map_err(|e| StartError::Spawn(e.to_string()))?;
         let args = cfg.args(port, &api_key);
-        let log = std::fs::File::create(&cfg.log_path).map_err(|e| StartError::Spawn(format!("log file: {e}")))?;
-        let log2 = log.try_clone().map_err(|e| StartError::Spawn(e.to_string()))?;
+        let log_file = tokio::fs::File::create(&cfg.log_path).await.map_err(|e| StartError::Spawn(format!("log file: {e}")))?;
+        let log: SharedLog = Arc::new(tokio::sync::Mutex::new((Some(log_file), 0)));
+        let report = Arc::new(std::sync::Mutex::new(LoadReport::default()));
+        let tail = Arc::new(std::sync::Mutex::new(VecDeque::with_capacity(400)));
         let t0 = Instant::now();
         let mut child = Command::new(&cfg.bin)
             .args(&args)
             .current_dir(cfg.bin.parent().unwrap_or(Path::new("/")))
             .stdin(Stdio::null())
-            .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| StartError::Spawn(e.to_string()))?;
+        if let Some(out) = child.stdout.take() {
+            pump(out, report.clone(), tail.clone(), log.clone());
+        }
+        if let Some(err) = child.stderr.take() {
+            pump(err, report.clone(), tail.clone(), log.clone());
+        }
+        let tail_text = |n: usize| -> String {
+            let t = tail.lock().unwrap();
+            t.iter().skip(t.len().saturating_sub(n)).cloned().collect::<Vec<_>>().join("\n")
+        };
         let pid = child.id().unwrap_or(0);
         let _ = std::fs::write(&cfg.pid_path, pid.to_string());
         let url = format!("http://127.0.0.1:{port}");
@@ -169,7 +270,9 @@ impl LlamaProcess {
         loop {
             if let Ok(Some(status)) = child.try_wait() {
                 let _ = std::fs::remove_file(&cfg.pid_path);
-                return Err(StartError::Exited { status: status.to_string(), tail: log_tail(&cfg.log_path, 25) });
+                // Let the pumps drain the last lines before reporting.
+                tokio::time::sleep(Duration::from_millis(150)).await;
+                return Err(StartError::Exited { status: status.to_string(), tail: tail_text(25) });
             }
             if t0.elapsed() > cfg.startup_timeout {
                 let _ = child.kill().await;
@@ -186,7 +289,12 @@ impl LlamaProcess {
         let load_ms = t0.elapsed().as_secs_f64() * 1000.0;
         // The key is a secret; keep it out of anything we display or log.
         let shown_args = args.iter().map(|a| if *a == api_key { "<random key>".to_string() } else { a.clone() }).collect();
-        Ok(LlamaProcess { child, info: ProcessInfo { pid, port, url, load_ms, args: shown_args }, api_key, pid_path: cfg.pid_path.clone() })
+        Ok(LlamaProcess { child, info: ProcessInfo { pid, port, url, load_ms, args: shown_args }, api_key, pid_path: cfg.pid_path.clone(), load: report, tail })
+    }
+
+    pub fn log_tail(&self, n: usize) -> String {
+        let t = self.tail.lock().unwrap();
+        t.iter().skip(t.len().saturating_sub(n)).cloned().collect::<Vec<_>>().join("\n")
     }
 
     pub fn is_running(&mut self) -> bool {

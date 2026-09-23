@@ -27,7 +27,7 @@ function oneHot(q: QuestionSpec, key: string | null): Distribution {
 
 export function rulesMove(obs: Observation): { action: Action; why: string } {
   const walk = obs.dirs.filter((d) => !d.blocked);
-  const route = obs.dirs.find((d) => d.onRoute) ?? [...walk].filter((d) => d.steps !== null).sort((a, b) => (a.steps as number) - (b.steps as number))[0];
+  const route = obs.dirs.find((d) => d.onRoute || d.routeBlocked) ?? [...walk].filter((d) => d.steps !== null).sort((a, b) => (a.steps as number) - (b.steps as number))[0];
   if (!route) return { action: "WAIT", why: "no route to the target" };
   if (route.forkliftNow || route.forkliftNext) {
     // A forklift that is waiting for us will never move first: yielding would deadlock. Go around.

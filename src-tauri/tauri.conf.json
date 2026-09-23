@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "JEB Depot",
+  "version": "0.1.0",
+  "identifier": "dev.jeb-depot.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "JEB // DEPOT",
+        "width": 1440,
+        "height": 838,
+        "minWidth": 960,
+        "minHeight": 568,
+        "resizable": true,
+        "center": true,
+        "backgroundColor": "#07090f"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
+    "resources": {
+      "resources/llama/*": "llama/"
+    },
+    "category": "public.app-category.developer-tools",
+    "shortDescription": "Local JEB-4B decision model driving a pixel-art warehouse robot",
+    "copyright": "MIT (code). JEB-4B weights Apache-2.0 (szybkie.ai). llama.cpp MIT.",
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-"
+    }
+  }
+}
