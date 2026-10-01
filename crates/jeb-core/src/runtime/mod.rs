@@ -360,8 +360,11 @@ impl Runtime {
         let t0 = Instant::now();
         svc.decide(&req, Scheduling::Primed).await.map_err(|e| RuntimeError::Other(format!("warm-up decision failed: {e}")))?;
         let first = t0.elapsed().as_secs_f64() * 1000.0;
+        // A different state for the warm measurement, so the prefix cache cannot answer it for free.
+        let mut req2 = req.clone();
+        req2["state"] = Value::from(req["state"].as_str().unwrap_or("").replace("battery 88%", "battery 87%").replace("tile (3,4)", "tile (4,4)"));
         let t1 = Instant::now();
-        svc.decide(&req, Scheduling::Primed).await.map_err(|e| RuntimeError::Other(format!("warm-up decision failed: {e}")))?;
+        svc.decide(&req2, Scheduling::Primed).await.map_err(|e| RuntimeError::Other(format!("warm-up decision failed: {e}")))?;
         let warm = t1.elapsed().as_secs_f64() * 1000.0;
         {
             let mut m = self.startup.lock().await;

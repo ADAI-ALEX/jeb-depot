@@ -143,9 +143,9 @@ export class BenchScreen {
     ly += 8;
     row("APP START → UI READY", fmtMs(app.diag?.appToUiReadyMs));
     row("COLD START → JEB ONLINE", fmtMs(app.status.appToOnlineMs));
-    row("MODEL LOAD (SPAWN→READY)", fmtMs(st?.model_load_ms));
-    row("FIRST INFERENCE (COLD)", fmtMs(st?.first_inference_ms));
-    row("WARM INFERENCE", fmtMs(st?.warm_inference_ms));
+    row("MODEL LOAD (SPAWN→READY)", fmtMs(st?.modelLoadMs));
+    row("FIRST INFERENCE (COLD)", fmtMs(st?.firstInferenceMs));
+    row("WARM INFERENCE", fmtMs(st?.warmInferenceMs));
     ly += 2;
     text(ui.fb, SMALL, r ? `LATENCY · ${r.n} REQUESTS × ${r.questionsPerRequest} QUESTIONS` : "LATENCY · RUN INFERENCE ×40", ix, ly, C.cyan, { shadow: null });
     ly += 8;

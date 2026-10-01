@@ -1,0 +1,73 @@
+{
+ "note": "30 unique robot states x 3 questions (move/choice, risk/score, reroute/noul); llama.cpp b11149 Metal, -np 1, primed scheduling; M1 Pro 16 GB; 2026-09-23",
+ "quants": {
+  "f16": {
+   "gguf": "jeb-4b.f16.gguf",
+   "size_gb": 8.666,
+   "load_s": 1.51,
+   "first_request_ms": 263,
+   "tick_ms_median": 939,
+   "tick_ms_p95": 997,
+   "prime_ms_median": 364,
+   "prime_tokens_median": 139,
+   "question_ms_median": 191,
+   "rss_gb": 8.73,
+   "mean_in_set_mass": 0.9835,
+   "missing_labels": 0,
+   "meanTvVsF16": 0,
+   "maxTvVsF16": 0,
+   "top1AgreeVsF16": "90/90"
+  },
+  "Q8_0": {
+   "gguf": "jeb-4b.Q8_0.gguf",
+   "size_gb": 4.611,
+   "load_s": 1.04,
+   "first_request_ms": 188,
+   "tick_ms_median": 946,
+   "tick_ms_p95": 953,
+   "prime_ms_median": 378,
+   "prime_tokens_median": 139,
+   "question_ms_median": 187,
+   "rss_gb": 5.01,
+   "mean_in_set_mass": 0.9831,
+   "missing_labels": 0,
+   "meanTvVsF16": 0.0043,
+   "maxTvVsF16": 0.0146,
+   "top1AgreeVsF16": "87/90"
+  },
+  "Q6_K": {
+   "gguf": "jeb-4b.Q6_K.gguf",
+   "size_gb": 3.563,
+   "load_s": 2.33,
+   "first_request_ms": 297,
+   "tick_ms_median": 1105,
+   "tick_ms_p95": 1117,
+   "prime_ms_median": 440,
+   "prime_tokens_median": 139,
+   "question_ms_median": 220,
+   "rss_gb": 3.96,
+   "mean_in_set_mass": 0.9839,
+   "missing_labels": 0,
+   "meanTvVsF16": 0.0164,
+   "maxTvVsF16": 0.0633,
+   "top1AgreeVsF16": "85/90"
+  },
+  "Q4_K_M": {
+   "gguf": "jeb-4b.Q4_K_M.gguf",
+   "size_gb": 2.783,
+   "load_s": 2.03,
+   "first_request_ms": 285,
+   "tick_ms_median": 1074,
+   "tick_ms_p95": 1079,
+   "prime_ms_median": 429,
+   "prime_tokens_median": 139,
+   "question_ms_median": 212,
+   "rss_gb": 3.23,
+   "mean_in_set_mass": 0.9819,
+   "missing_labels": 0,
+   "meanTvVsF16": 0.0487,
+   "maxTvVsF16": 0.1295,
+   "top1AgreeVsF16": "73/90"
+  }
+ }
+}

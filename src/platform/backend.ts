@@ -48,10 +48,10 @@ export interface CheckReport {
 }
 
 export interface StartupMetrics {
-  model_load_ms: number | null;
-  first_inference_ms: number | null;
-  warm_inference_ms: number | null;
-  verify_ms: number | null;
+  modelLoadMs: number | null;
+  firstInferenceMs: number | null;
+  warmInferenceMs: number | null;
+  verifyMs: number | null;
 }
 
 export interface ProcessInfo {
@@ -94,6 +94,10 @@ export interface AppInfo {
   uptimeMs: number;
   model: { name: string; source: string; quantisation: string; file: string; size: number; repo: string; revision: string; sha256: string };
   runtime: { llamaBuild: number; llamaCommit: string };
+  /** Test switches (JEB_DEPOT_AUTO_INSTALL / JEB_DEPOT_AUTO_DEMO) for unattended end-to-end runs. */
+  autoInstall?: boolean;
+  autoDemo?: boolean;
+  autoShots?: boolean;
 }
 
 export interface RunListItem {
@@ -130,6 +134,8 @@ export interface Backend extends JebTransport {
   loadRun(id: string): Promise<RunRecord>;
   deleteRun(id: string): Promise<void>;
   saveBenchmark(report: Record<string, unknown>): Promise<string>;
+  saveScreenshot(name: string, png: Uint8Array): Promise<string>;
+  recordSession(extra: Record<string, unknown>): Promise<void>;
   onSetup(cb: (ev: SetupEvent) => void): () => void;
 }
 
@@ -209,6 +215,12 @@ class TauriBackend implements Backend {
   saveBenchmark(report: Record<string, unknown>): Promise<string> {
     return this.call("save_benchmark", { report });
   }
+  saveScreenshot(name: string, png: Uint8Array): Promise<string> {
+    return this.call("save_screenshot", { name, png: Array.from(png) });
+  }
+  recordSession(extra: Record<string, unknown>): Promise<void> {
+    return this.call("record_session", { extra });
+  }
   onSetup(cb: (ev: SetupEvent) => void): () => void {
     let un: (() => void) | null = null;
     let cancelled = false;
@@ -253,7 +265,7 @@ class PreviewBackend implements Backend {
   }
   async runtimeStop(): Promise<void> {}
   async runtimeStatus(): Promise<RuntimeStatus> {
-    return { alive: false, online: false, process: null, startup: { model_load_ms: null, first_inference_ms: null, warm_inference_ms: null, verify_ms: null }, lastEvent: null, uiReadyMs: null, appToOnlineMs: null };
+    return { alive: false, online: false, process: null, startup: { modelLoadMs: null, firstInferenceMs: null, warmInferenceMs: null, verifyMs: null }, lastEvent: null, uiReadyMs: null, appToOnlineMs: null };
   }
   sampleResources(): Promise<ResourceSample> {
     return Promise.reject(new Error(NOT_IN_APP));
@@ -291,6 +303,10 @@ class PreviewBackend implements Backend {
   async saveBenchmark(): Promise<string> {
     return "(memory)";
   }
+  async saveScreenshot(): Promise<string> {
+    return "(preview: not saved)";
+  }
+  async recordSession(): Promise<void> {}
   onSetup(): () => void {
     return () => {};
   }

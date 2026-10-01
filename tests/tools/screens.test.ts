@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { App } from "../../src/app/app";
+import { frameClock } from "../../src/app/clock";
 import { Framebuffer } from "../../src/render/fb";
 import { Input } from "../../src/ui/input";
 import { UI } from "../../src/ui/widgets";
@@ -24,6 +25,7 @@ it.runIf(process.env.SHOTS && process.env.JEB_LIVE)("app screens with the live m
   const app = new App(backend);
   const frame = async (n = 1, wait = 16): Promise<void> => {
     for (let i = 0; i < n; i++) {
+      frameClock.last = performance.now();
       app.frame(ui, 1 / 30);
       input.endFrame();
       await new Promise((r) => setTimeout(r, wait));

@@ -42,6 +42,10 @@ export class App {
   status: JebStatus = { online: false, stage: "checking_runtime", message: "INITIALISING JEB", error: null, progress: null, check: null, startup: null, appToOnlineMs: null, device: null };
   private toasts: { text: string; color: number; until: number }[] = [];
   time = 0;
+  /** Screenshots requested this frame; main.ts saves them right after the frame is on the canvas. */
+  readonly shotQueue: string[] = [];
+  private shotKeys = new Set<string>();
+  private lastAutoShot = 0;
 
   readonly boot: BootScreen;
   readonly sim: SimScreen;
@@ -141,6 +145,13 @@ export class App {
     }
   }
 
+  /** Automatic screenshots for unattended test runs (JEB_DEPOT_AUTO_SHOTS), once per key. */
+  autoShot(key: string): void {
+    if (!this.info?.autoShots || this.shotKeys.has(key)) return;
+    this.shotKeys.add(key);
+    this.shotQueue.push(key);
+  }
+
   toast(s: string, color = C.cyan): void {
     this.toasts.push({ text: s.toUpperCase(), color, until: this.time + 3.5 });
     if (this.toasts.length > 4) this.toasts.shift();
@@ -171,6 +182,14 @@ export class App {
     }
     this.drawToasts(ui);
     ui.drawTip();
+    if (ui.input.key("KeyP")) {
+      this.shotQueue.push(`shot-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+      this.toast("SCREENSHOT SAVED TO THE APP DATA FOLDER", C.green);
+    }
+    if (this.info?.autoShots && this.screen === "sim" && this.time - this.lastAutoShot > 20) {
+      this.lastAutoShot = this.time;
+      this.autoShot(`sim-t${String(this.sim.ctl?.curr.tick ?? 0).padStart(3, "0")}`);
+    }
   }
 
   private topBar(ui: UI): void {

@@ -15,7 +15,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "fs", "io-util", "sync", "signal", "net", "io-std"] }
 futures-util = "0.3"
 thiserror = "2"
-sha2 = "0.10"
+sha2 = { version = "0.10", features = ["asm"] }  # ARMv8 SHA-2 instructions: ~5x faster verify of the 4.6 GB model
 hex = "0.4"
 getrandom = "0.3"
 libc = "0.2"

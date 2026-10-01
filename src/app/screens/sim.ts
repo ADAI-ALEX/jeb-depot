@@ -312,6 +312,7 @@ export class SimScreen {
 
   private drawSummary(ui: UI, ctl: SimController): void {
     const { s, run, saved } = this.summary as NonNullable<SimScreen["summary"]>;
+    this.app.autoShot("sim-summary");
     const fb = ui.fb;
     const w = 244;
     const h = 170;

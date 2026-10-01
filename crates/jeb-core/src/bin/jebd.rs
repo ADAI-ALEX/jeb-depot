@@ -50,6 +50,16 @@ async fn main() {
             println!("{}", serde_json::to_string_pretty(&rt.check().await).unwrap());
             return;
         }
+        "hash" => {
+            // Time the installer's SHA-256 path on a file (diagnostics for the verify step).
+            let file = PathBuf::from(args.get(2).expect("jebd hash FILE"));
+            let t0 = std::time::Instant::now();
+            let sum = jeb_core::runtime::download::sha256_file(&file, "file", &Default::default(), &mut |_| {}).await.expect("hash");
+            let len = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
+            let s = t0.elapsed().as_secs_f64();
+            println!("{sum}  {:.2} s  {:.0} MB/s", s, len as f64 / 1e6 / s);
+            return;
+        }
         "install" => {
             let rt = Runtime::new(paths());
             if let Err(e) = rt.install(&log_event).await {

@@ -79,7 +79,7 @@ export class NodeBackend implements Backend {
 
   async runtimeStatus(): Promise<RuntimeStatus> {
     const s = this.jebd ? await this.status() : null;
-    return { alive: !!s?.alive, online: !!s?.alive, process: s?.process ?? null, startup: s?.startup ?? { model_load_ms: null, first_inference_ms: null, warm_inference_ms: null, verify_ms: null }, lastEvent: null, uiReadyMs: null, appToOnlineMs: null };
+    return { alive: !!s?.alive, online: !!s?.alive, process: s?.process ?? null, startup: s?.startup ?? { modelLoadMs: null, firstInferenceMs: null, warmInferenceMs: null, verifyMs: null }, lastEvent: null, uiReadyMs: null, appToOnlineMs: null };
   }
 
   async sampleResources(): Promise<ResourceSample> {
@@ -129,6 +129,10 @@ export class NodeBackend implements Backend {
   async saveBenchmark(): Promise<string> {
     return "(memory)";
   }
+  async saveScreenshot(): Promise<string> {
+    return "(harness: not saved)";
+  }
+  async recordSession(): Promise<void> {}
   onSetup(cb: (ev: SetupEvent) => void): () => void {
     this.listeners.push(cb);
     return () => (this.listeners = this.listeners.filter((l) => l !== cb));

@@ -181,8 +181,8 @@ export class SettingsScreen {
     dr("PORT (LOOPBACK ONLY)", rt?.port ? `127.0.0.1:${rt.port} · API KEY` : null);
     dr("PID", rt?.pid);
     dr("BACKEND STATUS", rt ? (rt.alive ? "RUNNING" : "STOPPED") : null, rt?.alive ? C.green : C.red);
-    dr("MODEL LOAD TIME", fmtMs(st?.model_load_ms));
-    dr("FIRST / WARM INFERENCE", `${fmtMs(st?.first_inference_ms)} / ${fmtMs(st?.warm_inference_ms)}`);
+    dr("MODEL LOAD TIME", fmtMs(st?.modelLoadMs));
+    dr("FIRST / WARM INFERENCE", `${fmtMs(st?.firstInferenceMs)} / ${fmtMs(st?.warmInferenceMs)}`);
     const lt = app.sim.ctl?.lastTactical?.rec;
     dr("LAST INFERENCE", lt?.timing ? `${fmtMs(lt.timing.modelMs)} MODEL · ${lt.timing.tokensEvaluated} TOK` : null);
     dr("PROCESS MEMORY", d?.process ? `${fmtBytes(d.process.footprintBytes)} FOOTPRINT · ${fmtBytes(d.process.residentBytes)} RSS` : null);

@@ -16,6 +16,7 @@ import type { Action, Dir, Vec } from "../sim/types";
 import { turn } from "../sim/types";
 import type { WorldSnapshot } from "../sim/world";
 import { C } from "../render/palette";
+import { framesStarved } from "./clock";
 
 export type ControllerKind = "jeb" | "rules" | "manual";
 
@@ -119,6 +120,14 @@ export class SimController {
     this.pending = true;
     try {
       const rec = await this.mission.stepAuto();
+      if (framesStarved()) {
+        // Nobody is watching the animation: apply now and keep the mission moving without waiting for frames.
+        this.pending = false;
+        this.apply(rec);
+        this.animT = 1;
+        if (this.running && !this.done) void this.request();
+        return;
+      }
       this.queued = rec;
     } catch (e) {
       this.errors++;

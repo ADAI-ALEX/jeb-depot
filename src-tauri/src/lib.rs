@@ -39,7 +39,38 @@ async fn app_info(state: State<'_, AppState>, app: tauri::AppHandle) -> Res<Valu
         "model": {"name": manifest::MODEL_NAME, "source": manifest::MODEL_SOURCE, "quantisation": manifest::QUANTISATION,
                   "file": MODEL_GGUF.file_name, "size": MODEL_GGUF.size, "repo": MODEL_GGUF.repo, "revision": MODEL_GGUF.revision, "sha256": MODEL_GGUF.sha256},
         "runtime": {"llamaBuild": manifest::LLAMA_BUILD, "llamaCommit": manifest::LLAMA_COMMIT},
+        // Test switches for unattended end-to-end runs (off unless the variables are set by a test harness).
+        "autoInstall": std::env::var_os("JEB_DEPOT_AUTO_INSTALL").is_some(),
+        "autoDemo": std::env::var_os("JEB_DEPOT_AUTO_DEMO").is_some(),
+        "autoShots": std::env::var_os("JEB_DEPOT_AUTO_SHOTS").is_some(),
     }))
+}
+
+/// Save a PNG of the game screen (P key, or automatic in test runs) to <data>/screenshots.
+#[tauri::command]
+async fn save_screenshot(state: State<'_, AppState>, name: String, png: Vec<u8>) -> Res<String> {
+    let name = safe_id(&name)?;
+    let dir = state.runtime.paths.data.join("screenshots");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(format!("{name}.png"));
+    std::fs::write(&path, png).map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
+/// Record this launch's startup numbers (<data>/state/session.json) so launches can be audited after the fact.
+#[tauri::command]
+async fn record_session(state: State<'_, AppState>, extra: Value) -> Res<()> {
+    let rt = &state.runtime;
+    let v = json!({
+        "recordedAtMsSinceLaunch": state.t0.elapsed().as_secs_f64() * 1000.0,
+        "uiReadyMs": *state.ui_ready_ms.lock().await,
+        "appToOnlineMs": *state.online_ms.lock().await,
+        "startup": rt.startup.lock().await.clone(),
+        "process": rt.process_info().await,
+        "loadReport": rt.load_report().await,
+        "frontend": extra,
+    });
+    std::fs::write(rt.paths.state.join("session.json"), serde_json::to_vec_pretty(&v).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -273,7 +304,20 @@ pub fn run() {
             };
             let paths = Paths::new(data.clone(), llama_bin(app));
             paths.ensure()?;
-            app.manage(AppState { runtime: Arc::new(Runtime::new(paths)), t0, ui_ready_ms: Mutex::new(None), online_ms: Mutex::new(None), runs_dir: data.join("runs") });
+            let runtime = Arc::new(Runtime::new(paths));
+            app.manage(AppState { runtime: runtime.clone(), t0, ui_ready_ms: Mutex::new(None), online_ms: Mutex::new(None), runs_dir: data.join("runs") });
+            // SIGTERM / SIGINT (logout, `kill`, test harnesses) bypass the normal exit path: stop the model first.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tokio::signal::unix::{signal, SignalKind};
+                let (Ok(mut term), Ok(mut int)) = (signal(SignalKind::terminate()), signal(SignalKind::interrupt())) else { return };
+                tokio::select! {
+                    _ = term.recv() => {},
+                    _ = int.recv() => {},
+                }
+                runtime.stop().await;
+                handle.exit(0);
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -297,6 +341,8 @@ pub fn run() {
             load_run,
             delete_run,
             save_benchmark,
+            save_screenshot,
+            record_session,
         ])
         .build(tauri::generate_context!())
         .expect("error while building JEB Depot");

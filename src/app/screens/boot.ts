@@ -33,6 +33,8 @@ export class BootScreen {
   private onlineAt = 0;
   private t = 0;
   private started = false;
+  private phaseSeen: Phase | null = null;
+  private phaseSince = 0;
 
   constructor(private app: App) {}
 
@@ -70,6 +72,12 @@ export class BootScreen {
     if (missing.length) {
       this.step("model").state = "done";
       this.step("model").detail = "NOT INSTALLED YET";
+      // Unattended test runs (JEB_DEPOT_AUTO_INSTALL) skip the consent click; users always see the sizes first.
+      const info = app.info ?? (await app.backend.appInfo().catch(() => null));
+      if (info?.autoInstall) {
+        await this.install();
+        return;
+      }
       this.phase = "consent";
       return;
     }
@@ -106,9 +114,9 @@ export class BootScreen {
       app.status.appToOnlineMs = r.appToOnlineMs;
       app.status.online = true;
       for (const s of this.steps) if (s.state === "active" || s.state === "todo") s.state = "done";
-      this.step("start").detail = `MODEL LOADED IN ${fmtMs(r.startup.model_load_ms)}`;
-      this.step("optimise").detail = `METAL WARM-UP: FIRST ${fmtMs(r.startup.first_inference_ms)}, THEN ${fmtMs(r.startup.warm_inference_ms)}`;
-      if (this.step("verify").detail === "") this.step("verify").detail = r.startup.verify_ms ? `HASHED IN ${fmtMs(r.startup.verify_ms)}` : "VERIFIED EARLIER, UNCHANGED";
+      this.step("start").detail = `MODEL LOADED IN ${fmtMs(r.startup.modelLoadMs)}`;
+      this.step("optimise").detail = `METAL WARM-UP: FIRST ${fmtMs(r.startup.firstInferenceMs)}, THEN ${fmtMs(r.startup.warmInferenceMs)}`;
+      if (this.step("verify").detail === "") this.step("verify").detail = r.startup.verifyMs ? `HASHED IN ${fmtMs(r.startup.verifyMs)}` : "VERIFIED EARLIER, UNCHANGED";
       this.phase = "online";
       this.onlineAt = this.t;
       void app.loadDiagnostics();
@@ -135,6 +143,12 @@ export class BootScreen {
       this.started = true;
       void this.run();
     }
+    if (this.phase !== this.phaseSeen) {
+      this.phaseSeen = this.phase;
+      this.phaseSince = this.t;
+    }
+    if (this.t - this.phaseSince > 0.6) app.autoShot(`boot-${this.phase}`);
+    if (this.phase === "downloading") app.autoShot(`boot-downloading-${Math.floor((this.t - this.phaseSince) / 30)}`);
     // Follow live progress events for the active step.
     const st = app.status;
     if (this.phase === "downloading" || this.phase === "starting") {
@@ -175,6 +189,8 @@ export class BootScreen {
       if (this.t - this.onlineAt > 1.6) {
         app.go("sim");
         app.sim.onJebOnline();
+        void app.backend.recordSession({ screen: "sim", bootSeconds: this.t, phase: this.phase });
+        if (app.info?.autoDemo) app.sim.startDemo();
       }
     }
 
